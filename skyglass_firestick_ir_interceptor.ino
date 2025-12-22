@@ -1,6 +1,6 @@
+#include <IRrecv.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
-#include <IRrecv.h>
 #include <IRutils.h>
 
 const uint16_t kIrLedPin = D1;
@@ -17,7 +17,7 @@ void setup() {
   Serial.begin(115200);
 
   delay(200);
-  
+
   irsend.begin();
   irrecv.enableIRIn();
   Serial.println("Ready - listening for FireStick commands...\n");
@@ -30,34 +30,29 @@ void loop() {
       return;
     }
 
-    // debugRemote();
-    
     Serial.print("FireStick Button: ");
-    
+
     // Map FireStick commands to SkyGlass equivalents
     uint32_t skyglassCommand = 0;
-    
+
     if (results.decode_type == NEC && results.address == 0x40) {
       Serial.println(results.command, HEX);
 
       if (results.command == 0x12) {
         Serial.println("POWER");
         skyglassCommand = 0xC0081A0C; // SkyGlass Power button
-      }
-      else if (results.command == 0x1A) {
+      } else if (results.command == 0x1A) {
         Serial.println("VOLUME UP");
         skyglassCommand = 0xC0081610; // SkyGlass Volume Up
-      }
-      else if (results.command == 0x1E) {
+      } else if (results.command == 0x1E) {
         Serial.println("VOLUME DOWN");
         skyglassCommand = 0xC0081611; // SkyGlass Volume Down
-      }
-      else if (results.command == 0x10) {
+      } else if (results.command == 0x10) {
         Serial.println("MUTE");
         skyglassCommand = 0xC008160D; // SkyGlass Mute
       }
     }
-    
+
     // Send the mapped SkyGlass command
     if (skyglassCommand != 0) {
       Serial.print("Sending SkyGlass: 0x");
@@ -65,13 +60,12 @@ void loop() {
       irsend.sendRC6(skyglassCommand, 32);
       Serial.println();
     }
-    
+
     irrecv.resume();
   }
-  
+
   delay(50);
 }
-
 
 void debugRemote() {
   Serial.println("=== BUTTON PRESSED ===");
@@ -83,13 +77,12 @@ void debugRemote() {
   Serial.println(results.command, HEX);
   Serial.print("Bits: ");
   Serial.println(results.bits);
-  
+
   if (results.bits == 32) {
     uint32_t rawValue = (results.address << 16) | results.command;
     Serial.print("Raw-Data=0x");
     Serial.println(rawValue, HEX);
   }
-  
+
   Serial.println();
-  irrecv.resume();
 }
