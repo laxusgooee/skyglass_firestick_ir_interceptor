@@ -1,10 +1,7 @@
 #include <DHT.h>
 #include <DHT_U.h>
 #include <FluxGarage_RoboEyes.h>
-#include <IRrecv.h>
-#include <IRremoteESP8266.h>
-#include <IRsend.h>
-#include <IRutils.h>
+#include <IRremote.h>
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
@@ -16,10 +13,11 @@ RoboEyes<Adafruit_SSD1306> roboEyes(display);
 #define DHTTYPE DHT11
 DHT_Unified dht(DHTPIN, DHTTYPE);
 
-#define IRLEDPIN 4
-#define IRRECPIN 5
-IRsend irsend(IRLEDPIN);
-IRrecv irrecv(IRRECPIN, 1024);
+// Arduino Hardware Specific Pins
+#define IRLEDPIN 3  // Arduino pin for IR LED (PWM capable)
+#define IRRECPIN 11 // Arduino pin for IR receiver
+IRsend irsend;
+IRrecv irrecv(IRRECPIN);
 decode_results results;
 
 #define TILTPIN 2
@@ -29,7 +27,7 @@ int displayState = 0; // 0: face, 1: Temp, 2: Hum
 unsigned char displayMood = DEFAULT;
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600); // Standard Arduino baud rate
 
   // Initialize tilt sensor
   pinMode(TILTPIN, INPUT_PULLUP);
@@ -54,8 +52,6 @@ void setup() {
 
   delay(200);
 
-  // Initialize IRremote
-  irsend.begin();
   irrecv.enableIRIn();
   Serial.println("Ready - listening for FireStick commands...\n");
 }
@@ -139,6 +135,7 @@ void loop() {
     if (isnan(temperature) || isnan(humidity)) {
       roboEyes.anim_confused();
     } else if (displayState == 0) {
+
       roboEyes.setCuriosity(ON);
 
       if (temperature > 26) {
@@ -214,7 +211,7 @@ void displayHumidity(float humidity) {
 void debugRemote() {
   Serial.println("=== BUTTON PRESSED ===");
   Serial.print("Protocol: ");
-  Serial.println(typeToString(results.decode_type));
+  Serial.println(results.decode_type);
   Serial.print("Address: 0x");
   Serial.println(results.address, HEX);
   Serial.print("Command: 0x");
@@ -223,9 +220,9 @@ void debugRemote() {
   Serial.println(results.bits);
 
   if (results.bits == 32) {
-    uint32_t rawValue = (results.address << 16) | results.command;
-    Serial.print("Raw-Data=0x");
-    Serial.println(rawValue, HEX);
+    // uint32_t rawValue = (results.address << 16) | results.command;
+    // Serial.print("Raw-Data=0x");
+    // Serial.println(rawValue, HEX);
   }
 
   Serial.println();
