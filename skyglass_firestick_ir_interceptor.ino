@@ -1,4 +1,6 @@
 #include "Face.h"
+#include <DHT.h>
+#include <DHT_U.h>
 #include <IRrecv.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
@@ -8,18 +10,22 @@
 #define SCREEN_HEIGHT 32
 #define OLED_RESET -1
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
 Face face(&display);
+
+#define DHTPIN A1
+#define DHTTYPE DHT11
+DHT_Unified dht(DHTPIN, DHTTYPE);
 
 const uint16_t kIrLedPin = 4;
 const uint16_t kIrRecvPin = 5;
-
 const uint16_t kRecvBufferSize = 1024;
-
 IRsend irsend(kIrLedPin);
 IRrecv irrecv(kIrRecvPin, kRecvBufferSize);
 
 decode_results results;
+
+unsigned long lastSwitchTime = 0;
+int displayState = 0; // 0: Happy, 1: Temp, 2: Hum
 
 void setup() {
   Serial.begin(115200);
@@ -38,6 +44,8 @@ void setup() {
   irsend.begin();
   irrecv.enableIRIn();
   Serial.println("Ready - listening for FireStick commands...\n");
+
+  face.happy(40, 8);
 }
 
 void loop() {
@@ -54,7 +62,7 @@ void loop() {
 
     if (results.decode_type == NEC && results.address == 0x40) {
       Serial.println(results.command, HEX);
-      
+
       face.happy(40, 8);
 
       if (results.command == 0x12) {
@@ -83,8 +91,45 @@ void loop() {
     }
 
     irrecv.resume();
-  } else {
-    face.confused(40, 8);
+  }
+
+  // Read DHT sensors
+  sensors_event_t eventTemp;
+  dht.temperature().getEvent(&eventTemp);
+  float temperature = eventTemp.temperature;
+
+  sensors_event_t eventHum;
+  dht.humidity().getEvent(&eventHum);
+  float humidity = eventHum.relative_humidity;
+
+  if (millis() - lastSwitchTime > 10000) {
+    lastSwitchTime = millis();
+    displayState++;
+    if (displayState > 2)
+      displayState = 0;
+
+    if (isnan(temperature) || isnan(humidity)) {
+      face.dead(40, 8);
+    } else {
+      if (displayState == 0) {
+        // Determine face based on readings
+        if (temperature > 35 || temperature < 5) {
+          face.dead(40, 8); // Extreme conditions
+        } else if (temperature > 26 || humidity > 70) {
+          face.angered(40, 8); // Too hot or muggy
+        } else if (temperature < 18) {
+          face.supprised(40, 8); // Too cold
+        } else if (humidity < 30) {
+          face.confused(40, 8); // Dry air
+        } else {
+          face.happy(40, 8); // Comfort zone
+        }
+      } else if (displayState == 1) {
+        displayTemperature(temperature);
+      } else if (displayState == 2) {
+        displayHumidity(humidity);
+      }
+    }
   }
 
   delay(50);
@@ -92,14 +137,14 @@ void loop() {
 
 void displayTemperature(float temperature) {
   display.clearDisplay();
-  
+
   // Temperature value
   display.setFont();
   display.setTextSize(3);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(20, 8);
   display.print(temperature, 1);
-  
+
   // Degree symbol and Celsius
   display.setTextSize(1);
   display.setCursor(95, 8);
@@ -107,25 +152,25 @@ void displayTemperature(float temperature) {
   display.setCursor(105, 10);
   display.setTextSize(2);
   display.println("C");
-  
+
   display.display();
 }
 
 void displayHumidity(float humidity) {
   display.clearDisplay();
-  
+
   // Humidityvalue
   display.setFont();
   display.setTextSize(3);
   display.setTextColor(SSD1306_WHITE);
   display.setCursor(20, 8);
   display.print(humidity, 1);
-  
+
   // Degree symbol and Celsius
   display.setTextSize(2);
   display.setCursor(100, 16);
   display.println("%");
-  
+
   display.display();
 }
 
