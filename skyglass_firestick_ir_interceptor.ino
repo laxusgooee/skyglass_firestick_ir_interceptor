@@ -24,17 +24,23 @@ decode_results results;
 
 #define TILTPIN 2
 
-unsigned long eventTimer;
+#define BUTTONPIN 4
+
+unsigned long eventTimer = 0;
+
+unsigned long buttonTimer = 0;
+
 int displayState = 0; // 0: face, 1: Temp, 2: Hum
+int lastDisplayState = -1;
 unsigned char displayMood = DEFAULT;
 
 void setup() {
   Serial.begin(115200);
 
-  // Initialize tilt sensor
   pinMode(TILTPIN, INPUT_PULLUP);
 
-  // Initialize Screen
+  pinMode(BUTTONPIN, INPUT_PULLUP);
+
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
     for (;;)
@@ -108,7 +114,7 @@ void loop() {
 
   if (digitalRead(TILTPIN) == HIGH) {
     roboEyes.setMood(ANGRY);
-    roboEyes.setHFlicker(ON);
+    roboEyes.setVFlicker(ON);
     roboEyes.setCuriosity(OFF);
 
     roboEyes.update();
@@ -120,15 +126,33 @@ void loop() {
 
   if (displayState == 0) {
     roboEyes.setMood(displayMood);
-    roboEyes.setHFlicker(OFF);
+    roboEyes.setVFlicker(OFF);
 
     roboEyes.update();
   }
 
+  // Timer Logic - only updates state
   if (millis() - eventTimer > (displayState == 0 ? 10000 : 5000)) {
     displayState++;
     if (displayState > 2)
       displayState = 0;
+    eventTimer = millis();
+  }
+
+  // Button Logic - only updates state
+  if (digitalRead(BUTTONPIN) == LOW) {
+    if (millis() - buttonTimer > 200) { // Debounce
+      buttonTimer = millis();
+      displayState++;
+      if (displayState > 2)
+        displayState = 0;
+      eventTimer = millis(); // Reset timer for new state
+    }
+  }
+
+  // Display Logic - only runs when state changes
+  if (displayState != lastDisplayState) {
+    lastDisplayState = displayState;
 
     dht.temperature().getEvent(&temperaturEvent);
     float temperature = temperaturEvent.temperature;
@@ -139,20 +163,27 @@ void loop() {
     if (isnan(temperature) || isnan(humidity)) {
       roboEyes.anim_confused();
     } else if (displayState == 0) {
-      roboEyes.setCuriosity(ON);
-
-      if (temperature > 26) {
+      if (temperature > 28 && humidity < 35) {
         displayMood = DEFAULT;
         roboEyes.setSweat(ON);
-      } else if (temperature < 18) {
+        roboEyes.setHFlicker(OFF);
+        roboEyes.setCuriosity(ON);
+      } else if (temperature < 18 && humidity > 65) {
         displayMood = TIRED;
-        roboEyes.setVFlicker(ON);
-      } else if (humidity < 30) {
-        displayMood = TIRED;
-      } else if (humidity > 70) {
-        displayMood = TIRED;
+        roboEyes.setSweat(OFF);
+        roboEyes.setHFlicker(ON);
+        roboEyes.setCuriosity(OFF);
+      } else if (temperature >= 20 && temperature <= 25 && humidity >= 40 &&
+                 humidity <= 60) {
+        displayMood = HAPPY;
+        roboEyes.setSweat(OFF);
+        roboEyes.setHFlicker(OFF);
+        roboEyes.setCuriosity(OFF);
       } else {
         displayMood = DEFAULT;
+        roboEyes.setSweat(OFF);
+        roboEyes.setHFlicker(OFF);
+        roboEyes.setCuriosity(ON);
       }
 
       roboEyes.setMood(displayMood);
@@ -165,8 +196,6 @@ void loop() {
         displayHumidity(humidity);
       }
     }
-
-    eventTimer = millis();
   }
 
   delay(50);
