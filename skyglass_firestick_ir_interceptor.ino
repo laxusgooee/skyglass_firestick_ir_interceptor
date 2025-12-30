@@ -1,3 +1,5 @@
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include <DHT.h>
 #include <DHT_U.h>
 #include <FluxGarage_RoboEyes.h>
@@ -132,7 +134,7 @@ void loop() {
   }
 
   // Timer Logic - only updates state
-  if (millis() - eventTimer > (displayState == 0 ? 10000 : 5000)) {
+  if (millis() - eventTimer > (displayState == 0 ? 30000 : 5000)) {
     displayState++;
     if (displayState > 2)
       displayState = 0;
@@ -168,6 +170,11 @@ void loop() {
         roboEyes.setSweat(ON);
         roboEyes.setHFlicker(OFF);
         roboEyes.setCuriosity(ON);
+      } else if (temperature < 16) {
+        displayMood = TIRED;
+        roboEyes.setSweat(OFF);
+        roboEyes.setHFlicker(ON);
+        roboEyes.setCuriosity(OFF);
       } else if (temperature < 18 && humidity > 65) {
         displayMood = TIRED;
         roboEyes.setSweat(OFF);
