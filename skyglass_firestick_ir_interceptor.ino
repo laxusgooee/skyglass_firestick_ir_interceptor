@@ -14,19 +14,19 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 RoboEyes<Adafruit_SSD1306> roboEyes(display);
 
-#define DHTPIN A1
+#define DHTPIN D6
 #define DHTTYPE DHT11
 DHT_Unified dht(DHTPIN, DHTTYPE);
 
-#define IRLEDPIN 4
-#define IRRECPIN 5
+#define IRLEDPIN D8
+#define IRRECPIN D5
 IRsend irsend(IRLEDPIN);
 IRrecv irrecv(IRRECPIN, 1024);
 decode_results results;
 
-#define TILTPIN 2
+#define TILTPIN D7
 
-#define BUTTONPIN 4
+#define BUTTONPIN D3
 
 unsigned long eventTimer = 0;
 
@@ -116,7 +116,6 @@ void loop() {
 
   if (digitalRead(TILTPIN) == HIGH) {
     roboEyes.setMood(ANGRY);
-    roboEyes.setVFlicker(ON);
     roboEyes.setCuriosity(OFF);
 
     roboEyes.update();
@@ -128,7 +127,6 @@ void loop() {
 
   if (displayState == 0) {
     roboEyes.setMood(displayMood);
-    roboEyes.setVFlicker(OFF);
 
     roboEyes.update();
   }
@@ -143,12 +141,12 @@ void loop() {
 
   // Button Logic - only updates state
   if (digitalRead(BUTTONPIN) == LOW) {
-    if (millis() - buttonTimer > 200) { // Debounce
+    if (millis() - buttonTimer > 500) { // Debounce
       buttonTimer = millis();
       displayState++;
       if (displayState > 2)
         displayState = 0;
-      eventTimer = millis(); // Reset timer for new state
+      eventTimer = millis();
     }
   }
 
@@ -205,7 +203,7 @@ void loop() {
     }
   }
 
-  delay(50);
+  // delay(50);
 }
 
 void displayTemperature(float temperature) {
